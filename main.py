@@ -27,38 +27,47 @@ async def log_user_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_gban_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    if not chat or chat.type == ChatType.PRIVATE: 
+    if not chat or chat.type == ChatType.PRIVATE:
         return
 
-    if not db.is_enforced(chat.id): 
+    if not db.is_enforced(chat.id):
         return
+
+    users_to_check = []
+
+    if update.message and update.message.new_chat_members:
+        users_to_check.extend(update.message.new_chat_members)
     
-    user = update.effective_user
-    if not user or db.is_sudo(user.id): 
-        return
+    elif update.effective_user:
+        users_to_check.append(update.effective_user)
 
-    ban_info = db.get_gban(user.id)
-    
-    if ban_info:
-        reason = ban_info[0]
-        try:
-            await context.bot.ban_chat_member(chat.id, user.id)
-            if update.message:
-                try:
-                    await update.message.delete()
-                except Exception:
-                    pass
+    for user in users_to_check:
+        if user.is_bot or db.is_sudo(user.id):
+            continue
 
-            msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                   f"<i>Enforcing ban in this chat.</i>\n\n"
-                   f"<b>User ID:</b> <code>{user.id}</code>\n"
-                   f"<b>Reason:</b> {utils.safe_escape(reason)}\n"
-                   f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
-            
-            await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
-            
-        except Exception as e:
-            logging.error(f"Failed to enforce gban in {chat.id} for user {user.id}: {e}")
+        ban_info = db.get_gban(user.id)
+        if ban_info:
+            reason = ban_info[0]
+            try:
+                await context.bot.ban_chat_member(chat.id, user.id)
+                
+                if update.message:
+                    try:
+                        await update.message.delete()
+                    except:
+                        pass
+
+                msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
+                       f"<i>Enforcing ban in this chat.</i>\n\n"
+                       f"<b>User ID:</b> <code>{user.id}</code>\n"
+                       f"<b>Reason:</b> {utils.safe_escape(reason)}\n"
+                       f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
+                
+                await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
+                logging.info(f"Gban enforced for {user.id} in {chat.id}")
+                
+            except Exception as e:
+                logging.error(f"Error banning {user.id} in {chat.id}: {e}")
 
 # --- COMMANDS ---
 
