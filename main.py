@@ -33,8 +33,6 @@ async def check_gban_member_update(update: Update, context: ContextTypes.DEFAULT
     if not db.is_enforced(chat.id):
         return
 
-    # Sprawdzamy status - interesuje nas tylko 'member' (ktoś wszedł) 
-    # lub 'left' (ktoś wyszedł, wtedy banujemy zaocznie)
     status = result.new_chat_member.status
     user = result.new_chat_member.user
 
@@ -113,7 +111,6 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db.add_gban(target_id, admin.id, reason)
     
-    # Próba wyrzucenia od razu z obecnego czatu
     try: await context.bot.ban_chat_member(chat.id, target_id)
     except: pass
 
@@ -209,17 +206,36 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if not chat or chat.type == ChatType.PRIVATE: return
+    
     member = await chat.get_member(update.effective_user.id)
-    if member.status != "creator" and not db.is_sudo(update.effective_user.id): return
-    if not context.args: return
+    is_sudo = db.is_sudo(update.effective_user.id)
+    if member.status != "creator" and not is_sudo:
+        await update.message.reply_text("Only the chat Creator can change this setting.")
+        return
+
+    current_status = db.is_enforced(chat.id)
+    status_text = "ENABLED" if current_status else "DISABLED"
+
+    if not context.args:
+        await update.message.reply_html(
+            f"<b>Global Ban Enforcement</b>\n\n"
+            f"Current status for this chat: <b>{status_text}</b>\n"
+            f"<b>Usage:</b> <code>/enforcegban &lt;yes/on/no/off&gt;</code>"
+        )
+        return
     
     choice = context.args[0].lower()
     if choice in ['yes', 'on']:
         db.set_enforce(chat.id, 1)
-        await update.message.reply_html("✅ <b>Global Ban enforcement is now ENABLED.</b>")
+        await update.message.reply_html("✅ <b>Global Ban enforcement has been ENABLED.</b>")
     elif choice in ['no', 'off']:
         db.set_enforce(chat.id, 0)
-        await update.message.reply_html("❌ <b>Global Ban enforcement is now DISABLED.</b>")
+        await update.message.reply_html("❌ <b>Global Ban enforcement has been DISABLED.</b>\n<i>Warning: Gbanned users will no longer be removed automatically.</i>")
+    else:
+        await update.message.reply_html(
+            f"❌ <b>Invalid choice!</b>\n\n"
+            f"Use: <code>/enforcegban on</code> or <code>/enforcegban off</code>"
+        )
 
 # --- MAIN ---
 
