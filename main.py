@@ -12,18 +12,20 @@ import utils
 
 logging.basicConfig(level=logging.INFO)
 
-async def check_gban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- PROTECTION LOGIC ---
+
+async def check_gban_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if not chat or chat.type == ChatType.PRIVATE: return
     if not db.is_enforced(chat.id): return
     
-    users = []
+    users_to_check = []
     if update.message and update.message.new_chat_members:
-        users = update.message.new_chat_members
+        users_to_check = update.message.new_chat_members
     elif update.effective_user:
-        users = [update.effective_user]
+        users_to_check = [update.effective_user]
 
-    for user in users:
+    for user in users_to_check:
         if db.is_sudo(user.id): continue
         ban_info = db.get_gban(user.id)
         if ban_info:
@@ -38,7 +40,9 @@ async def check_gban(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
             except: pass
 
-async def gban_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- INDIVIDUAL COMMAND FUNCTIONS ---
+
+async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin = update.effective_user
     if not db.is_sudo(admin.id): return
     
@@ -54,7 +58,7 @@ async def gban_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not target_id or not reason:
         await update.message.reply_text("Usage: /gban <ID/@user/reply> <reason>"); return
     if db.is_sudo(target_id) or target_id == context.bot.id:
-        await update.message.reply_text("Nice try, but you can't gban a privileged user."); return
+        await update.message.reply_text("LoL, looks like... Someone tried global ban privileged user. Nice Try."); return
 
     old_ban = db.get_gban(target_id)
     await update.message.reply_html("Ok!")
@@ -67,7 +71,6 @@ async def gban_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     hashtag = "#GBANUPDATE" if old_ban else "#GBANNED"
     
-    # 1:1 IDENTICAL MESSAGE
     log_msg = (f"<b>{hashtag}</b>\n"
                f"<b>Initiated From:</b> {utils.safe_escape(update.effective_chat.title)} [<code>{update.effective_chat.id}</code>]\n\n"
                f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
@@ -78,11 +81,14 @@ async def gban_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_html(log_msg)
     if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
 
-async def ungban_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin = update.effective_user
     if not db.is_sudo(admin.id): return
-    target_id, _ = await utils.resolve_id(context, context.args[0]) if context.args else (None, None)
-    if update.message.reply_to_message: target_id = update.message.reply_to_message.from_user.id
+    target_id = None
+    if update.message.reply_to_message:
+        target_id = update.message.reply_to_message.from_user.id
+    elif context.args:
+        target_id, _ = await utils.resolve_id(context, context.args[0])
     
     if not target_id: await update.message.reply_text("User ID not found."); return
 
@@ -102,7 +108,7 @@ async def ungban_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("User is not globally banned.")
 
-async def gbanstat_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def gban_stat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     sudo = db.is_sudo(user.id)
     target_id = None
@@ -131,41 +137,70 @@ async def gbanstat_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_html(msg)
 
-async def sudo_mgmt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    cmd = update.message.text.split()[0][1:]
-    target_id, _ = await utils.resolve_id(context, context.args[0]) if context.args else (None, None)
-    if update.message.reply_to_message: target_id = update.message.reply_to_message.from_user.id
+    target_id = None
+    if update.message.reply_to_message:
+        target_id = update.message.reply_to_message.from_user.id
+    elif context.args:
+        target_id, _ = await utils.resolve_id(context, context.args[0])
     
-    if not target_id: return
-    if cmd == "addsudo":
+    if target_id:
         db.add_sudo(target_id)
-        await update.message.reply_text(f"✅ Added {target_id} to sudo.")
-    elif cmd == "delsudo":
+        await update.message.reply_text(f"✅ Added {target_id} to sudo list.")
+
+async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    target_id = None
+    if update.message.reply_to_message:
+        target_id = update.message.reply_to_message.from_user.id
+    elif context.args:
+        target_id, _ = await utils.resolve_id(context, context.args[0])
+    
+    if target_id:
         if target_id == OWNER_ID: return
         db.remove_sudo(target_id)
-        await update.message.reply_text(f"❌ Removed {target_id} from sudo.")
+        await update.message.reply_text(f"❌ Removed {target_id} from sudo list.")
 
-async def enforce_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if chat.type == ChatType.PRIVATE: return
     member = await chat.get_member(update.effective_user.id)
     if member.status != "creator" and not db.is_sudo(update.effective_user.id): return
-    if not context.args: return
-    status = 1 if context.args[0].lower() in ['on', 'yes'] else 0
-    db.set_enforce(chat.id, status)
-    await update.message.reply_html(f"✅ Gban enforcement: {'ENABLED' if status else 'DISABLED'}")
+    
+    if not context.args:
+        await update.message.reply_text("Usage: /enforcegban <yes/on/no/off>")
+        return
+
+    choice = context.args[0].lower()
+    if choice in ['yes', 'on']:
+        db.set_enforce(chat.id, 1)
+        await update.message.reply_html("✅ <b>Global Ban enforcement is now ENABLED for this chat.</b>")
+    elif choice in ['no', 'off']:
+        db.set_enforce(chat.id, 0)
+        await update.message.reply_html("❌ <b>Global Ban enforcement is now DISABLED for this chat.</b>")
+    else:
+        await update.message.reply_text("Invalid choice. Use yes/on or no/off.")
+
+# --- MAIN ---
 
 def main():
     db.init_db()
     app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("gban", gban_cmd))
-    app.add_handler(CommandHandler("ungban", ungban_cmd))
-    app.add_handler(CommandHandler("gbanstat", gbanstat_cmd))
-    app.add_handler(CommandHandler(["addsudo", "delsudo"], sudo_mgmt))
-    app.add_handler(CommandHandler("enforcegban", enforce_cmd))
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban), group=1)
-    print("Gban Bot Started...")
+
+    # Handlers registered individually
+    app.add_handler(CommandHandler("gban", gban_command))
+    app.add_handler(CommandHandler("ungban", ungban_command))
+    app.add_handler(CommandHandler("gbanstat", gban_stat_command))
+    app.add_handler(CommandHandler("addsudo", addsudo_command))
+    app.add_handler(CommandHandler("delsudo", delsudo_command))
+    app.add_handler(CommandHandler("enforcegban", enforce_gban_command))
+
+    # Background checking
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban_handler), group=1)
+
+    print("Bot is up and running...")
     app.run_polling()
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
