@@ -25,11 +25,23 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-# --- USER LOGGER ---
+# --- LOGGERs ---
 async def log_user_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user and not user.is_bot:
         db.log_user(user.id, user.username, user.first_name)
+
+async def chat_logger_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    
+    if chat and chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+        if 'known_chats' not in context.bot_data:
+            context.bot_data['known_chats'] = set()
+
+        if chat.id not in context.bot_data['known_chats']:
+            db.log_chat(chat.id)
+            context.bot_data['known_chats'].add(chat.id)
+            logger.info(f"New chat discovered and logged: {chat.id}")
 
 # --- PROTECTION LOGIC ---
 
@@ -593,6 +605,7 @@ def main():
 
     app.add_handler(MessageHandler(filters.Regex(r'^[!/]\w+'), command_router), group=1)    
 
+    app.add_handler(MessageHandler(filters.ALL, chat_logger_handler), group=-15)
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-10)
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, check_gban_on_exit), group=-10)
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban_on_message), group=-10)
