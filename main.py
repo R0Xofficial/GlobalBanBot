@@ -238,19 +238,16 @@ def main():
 
     app.add_handler(CommandHandler("gban", gban_command))
     app.add_handler(CommandHandler("ungban", ungban_command))
-    app.add_handler(CommandHandler("gbanstat", gbanstat_command))
+    app.add_handler(CommandHandler("gbanstat", gban_stat_command))
     app.add_handler(CommandHandler("addsudo", addsudo_command))
     app.add_handler(CommandHandler("delsudo", delsudo_command))
     app.add_handler(CommandHandler("enforcegban", enforce_gban_command))
 
-    # User Logger (Group 0 - zawsze loguje)
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, log_user_handler), group=0)
-    # Gban Checker (Group 1 - sprawdza po zlogowaniu)
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban_handler), group=1)
-    app.add_handler(ChatMemberHandler(check_gban_entry_handler, ChatMemberHandler.CHAT_MEMBER), group=1)
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-10)
+    
+    app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, check_gban_on_exit), group=-10)
+    
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban_on_message), group=-10)
 
-    print("Started...")
-    app.run_polling(allowed_updates=[Update.MESSAGE, Update.CHAT_MEMBER, Update.CALLBACK_QUERY])
-
-if __name__ == "__main__":
-    main()
+    print("Started")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
