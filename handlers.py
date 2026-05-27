@@ -1,3 +1,4 @@
+# --- handlers.py ---
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -14,17 +15,18 @@ def bot_command(name: str | list):
     return decorator
 
 async def command_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.effective_message
-    if not message or not message.text:
-        return
+    msg = update.effective_message
+    if not msg: return
+    
+    text = msg.text or msg.caption
+    if not text: return
 
-    text = message.text.strip()
     if not (text.startswith('/') or text.startswith('!')):
         return
 
     parts = text.split()
-    cmd_name = parts[0][1:].lower()
-    context.args = parts[1:]
-
+    cmd_name = parts[0][1:].split('@')[0].lower()
+    
     if cmd_name in REGISTERED_CMDS:
+        context.args = parts[1:]
         await REGISTERED_CMDS[cmd_name](update, context)
