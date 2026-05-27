@@ -550,6 +550,7 @@ def main():
 
     app.add_error_handler(error_handler)
 
+    app.add_handler(MessageHandler(filters.Regex(r'^[!/]\w+'), command_router), group=1)
     app.add_handler(CommandHandler("ping", ping_command))
     app.add_handler(CommandHandler("uptime", uptime_command))
     app.add_handler(CommandHandler("gban", gban_command))
