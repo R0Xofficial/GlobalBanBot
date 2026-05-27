@@ -1,6 +1,8 @@
 import logging
 import asyncio
 import time
+import traceback
+import io
 from datetime import datetime, timezone
 from telegram import Update
 from telegram.constants import ParseMode, ChatType, ChatMemberStatus
@@ -265,58 +267,59 @@ async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_html(msg)
 
 @bot_command("addsudo")
-async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID: 
-        return
+async def addsudo_cmd(update, context):
+    admin = update.effective_user
+    if admin.id != OWNER_ID: return
     
     target_id = None
     if update.message.reply_to_message:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
         target_id, err = await utils.resolve_id(context, context.args[0])
-        if err:
-            await update.message.reply_text(err)
-            return
-    
-    if not target_id:
-        await update.message.reply_text("Who is the target of the command? The stars in the sky?")
-        return
-        
-    db.add_sudo(target_id)
-    user_link = await utils.create_user_link(target_id, context)
-    
-    await update.message.reply_html(
-        f"Done! User {user_link} [<code>{target_id}</code>] has been added to the <b>Sudo list</b>."
-    )
+        if err: return await update.message.reply_text(err)
+
+    if target_id:
+        db.add_sudo(target_id)
+        user_link = await utils.create_user_link(target_id, context)
+        admin_link = await utils.create_user_link(admin.id, context)
+        curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        log_msg = (f"<b>#SUDO_ADDED</b>\n"
+                   f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
+                   f"<b>Admin:</b> {admin_link} [<code>{admin.id}</code>]\n"
+                   f"<b>Date:</b> <code>{curr_time}</code>")
+
+        await update.message.reply_html(log_msg)
+        if LOG_CHAT_ID:
+            await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
 
 @bot_command("delsudo")
-async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID: 
-        return
+async def delsudo_cmd(update, context):
+    admin = update.effective_user
+    if admin.id != OWNER_ID: return
     
     target_id = None
     if update.message.reply_to_message:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
         target_id, err = await utils.resolve_id(context, context.args[0])
-        if err:
-            await update.message.reply_text(err)
-            return
-            
-    if not target_id:
-        await update.message.reply_text("Who is the target of the command? The stars in the sky?")
-        return
+        if err: return await update.message.reply_text(err)
 
-    if target_id == OWNER_ID:
-        await update.message.reply_text("You cannot remove the Master Owner from Sudo.")
-        return
-    if db.db_query("DELETE FROM sudo_users WHERE user_id = ?", (target_id,), commit=True).rowcount > 0:
+    if target_id:
+        if target_id == OWNER_ID: return
+        db.remove_sudo(target_id)
         user_link = await utils.create_user_link(target_id, context)
-        await update.message.reply_html(
-            f"Done! User {user_link} [<code>{target_id}</code>] has been removed from the <b>Sudo list</b>."
-        )
-    else:
-        await update.message.reply_text("This user was not in the Sudo list.")
+        admin_link = await utils.create_user_link(admin.id, context)
+        curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        log_msg = (f"<b>#SUDO_REMOVED</b>\n"
+                   f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
+                   f"<b>Admin:</b> {admin_link} [<code>{admin.id}</code>]\n"
+                   f"<b>Date:</b> <code>{curr_time}</code>")
+
+        await update.message.reply_html(log_msg)
+        if LOG_CHAT_ID:
+            await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
 
 @bot_command("enforceban")
 async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -403,7 +406,6 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if checked % 10 == 0:
             await asyncio.sleep(0.5)
 
-    # Finalny raport
     await status_msg.edit_text(
         f"<b>Cleanup complete!</b>\n\n"
         f"• Total chats in DB: <code>{total}</code>\n"
@@ -411,6 +413,50 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Active: <code>{total - removed}</code>",
         parse_mode=ParseMode.HTML
     )
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error("Exception while handling an update:", exc_info=context.error)
+
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
+
+    update_str = update.to_dict() if isinstance(update, Update) else str(update)
+    
+    message = (
+        f"<b>Bot Error Detected!</b>\n\n"
+        f"<b>Error:</b> <code>{utils.safe_escape(str(context.error))}</code>\n\n"
+        f"<b>Update:</b> <code>{utils.safe_escape(str(update_str)[:200])}...</code>"
+    )
+
+    if LOG_CHAT_ID:
+        try:
+            if len(tb_string) > 3000:
+                with io.BytesIO(str.encode(tb_string)) as f:
+                    f.name = "traceback.txt"
+                    await context.bot.send_document(LOG_CHAT_ID, document=f, caption=message, parse_mode=ParseMode.HTML)
+            else:
+                await context.bot.send_message(LOG_CHAT_ID, f"{message}\n\n<b>Traceback:</b>\n<code>{utils.safe_escape(tb_string)}</code>", parse_mode=ParseMode.HTML)
+        except:
+            pass
+
+@bot_command(["sudolist", "sudos"])
+async def sudolist_cmd(update, context):
+    if not db.is_sudo(update.effective_user.id): return
+    
+    sudos = db.get_all_sudos()
+    if not sudos:
+        await update.message.reply_text("The Sudo list is empty.")
+        return
+
+    msg = "<b>Sudo Privileged Users:</b>\n\n"
+    msg += f"• {await utils.create_user_link(OWNER_ID, context)} [<code>{OWNER_ID}</code>] (Owner)\n"
+    
+    for s_id in sudos:
+        if s_id == OWNER_ID: continue
+        u_link = await utils.create_user_link(s_id, context)
+        msg += f"• {u_link} [<code>{s_id}</code>]\n"
+    
+    await update.message.reply_html(msg)
     
 # --- main.py ---
 
@@ -419,6 +465,8 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     db.init_db()
     app = Application.builder().token(TOKEN).build()
+
+    app.add_error_handler(error_handler)
 
     app.add_handler(CommandHandler("ping", ping_command))
     app.add_handler(CommandHandler("uptime", uptime_command))
@@ -430,6 +478,8 @@ def main():
     app.add_handler(CommandHandler("enforcegban", enforce_gban_command))
     app.add_handler(CommandHandler("databackup", backup_command))
     app.add_handler(CommandHandler("cleanup", cleanup_cmd))
+    app.add_handler(CommandHandler(["sudolist", "sudos"], sudolist_cmd))
+    
 
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-10)
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, check_gban_on_exit), group=-10)
