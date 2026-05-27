@@ -548,7 +548,7 @@ async def update_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
 
-    msg = await update.message.reply_text("Updating...", parse_mode=ParseMode.HTML)
+    msg = await update.message.reply_text("Checking updates...", parse_mode=ParseMode.HTML)
 
     try:
         pull_result = subprocess.check_output(["git", "pull"]).decode("utf-8")
@@ -557,12 +557,12 @@ async def update_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text("<b>Bot is already up to date.</b>\nNo restart needed.", parse_mode=ParseMode.HTML)
             return
 
-        await msg.edit_text(f"<b>Pull successful:</b>\n<code>{pull_result}</code>\n\nRestarting now...", parse_mode=ParseMode.HTML)
+        await msg.edit_text(f"<b>Update successful:</b>\n<code>{pull_result}</code>\n\nRestarting now...", parse_mode=ParseMode.HTML)
 
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
     except subprocess.CalledProcessError as e:
-        await msg.edit_text(f"<b>Git Pull failed!</b>\nError: <code>{str(e)}</code>", parse_mode=ParseMode.HTML)
+        await msg.edit_text(f"<b>Update failed!</b>\nError: <code>{str(e)}</code>", parse_mode=ParseMode.HTML)
     except Exception as e:
         await msg.edit_text(f"<b>Unexpected error:</b>\n<code>{str(e)}</code>", parse_mode=ParseMode.HTML)
     
