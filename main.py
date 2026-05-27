@@ -290,7 +290,7 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_link = await utils.create_user_link(target_id, context)
     curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    log_msg = (f"<b>#SUDO_ADDED</b>\n"
+    log_msg = (f"<b>#SUDO</b>\n"
                f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
                f"<b>Date:</b> <code>{curr_time}</code>")
 
@@ -325,8 +325,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_link = await utils.create_user_link(target_id, context)
         curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # Log bez pola Admin
-        log_msg = (f"<b>#SUDO_REMOVED</b>\n"
+        log_msg = (f"<b>#UNSUDO</b>\n"
                    f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
                    f"<b>Date:</b> <code>{curr_time}</code>")
 
