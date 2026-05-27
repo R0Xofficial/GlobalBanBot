@@ -557,7 +557,7 @@ async def update_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.edit_text("<b>Bot is already up to date.</b>\nNo restart needed.", parse_mode=ParseMode.HTML)
             return
 
-        await msg.edit_text(f"<b>Update successful:</b>\n<code>{pull_result}</code>\n\nRestarting now...", parse_mode=ParseMode.HTML)
+        await msg.edit_text(f"<b>Update successful:</b>\n<i>Restarting now...</i>\n\n Log:<blockquote>{pull_result}</blockquote>\n", parse_mode=ParseMode.HTML)
 
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
