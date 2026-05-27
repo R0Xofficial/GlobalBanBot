@@ -267,7 +267,7 @@ async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_html(msg)
 
 @bot_command("addsudo")
-async def addsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Dodaje użytkownika do listy Sudo (Tylko Owner)."""
     if update.effective_user.id != OWNER_ID: 
         return
@@ -300,7 +300,7 @@ async def addsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @bot_command("delsudo")
-async def delsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: 
         return
     
