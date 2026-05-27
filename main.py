@@ -136,10 +136,7 @@ async def get_readable_time(seconds: int) -> str:
     return ", ".join(result) if result else "0s"
 
 @bot_command("uptime")
-async def uptime_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Shows how long the bot has been running."""
-    from config import BOT_START_TIME
-    
+async def uptime_command(update: Update, context: ContextTypes.DEFAULT_TYPE):    
     current_time = datetime.now(timezone.utc)
     uptime_seconds = int((current_time - BOT_START_TIME).total_seconds())
     readable_uptime = await get_readable_time(uptime_seconds)
