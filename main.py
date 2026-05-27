@@ -209,9 +209,10 @@ def main():
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, log_user_handler), group=0)
     # Gban Checker (Group 1 - sprawdza po zlogowaniu)
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban_handler), group=1)
+    app.add_handler(ChatMemberHandler(check_gban_entry_handler, ChatMemberHandler.CHAT_MEMBER), group=1)
 
     print("Started...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=[Update.MESSAGE, Update.CHAT_MEMBER, Update.CALLBACK_QUERY])
 
 if __name__ == "__main__":
     main()
