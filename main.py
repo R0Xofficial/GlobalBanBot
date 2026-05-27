@@ -429,30 +429,56 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.HTML
     )
 
+import traceback
+import io
+from datetime import datetime
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Exception while handling an update:", exc_info=context.error)
 
     tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
     tb_string = "".join(tb_list)
 
-    update_str = update.to_dict() if isinstance(update, Update) else str(update)
+    chat_info = "N/A"
+    user_info = "N/A"
     
-    message = (
+    if isinstance(update, Update):
+        if update.effective_chat:
+            chat_title = update.effective_chat.title or "Private Chat"
+            chat_info = f"{utils.safe_escape(chat_title)} [<code>{update.effective_chat.id}</code>]"
+        if update.effective_user:
+            user_name = update.effective_user.first_name
+            user_info = f"{utils.safe_escape(user_name)} [<code>{update.effective_user.id}</code>]"
+
+    summary_message = (
         f"<b>Bot Error Detected!</b>\n\n"
-        f"<b>Error:</b> <code>{utils.safe_escape(str(context.error))}</code>\n\n"
-        f"<b>Update:</b> <code>{utils.safe_escape(str(update_str)[:200])}...</code>"
+        f"<b>Error:</b> <code>{utils.safe_escape(str(context.error))}</code>\n"
+        f"<b>Chat:</b> {chat_info}\n"
+        f"<b>User:</b> {user_info}\n\n"
+        f"<i>Full traceback is attached as a file.</i>"
     )
 
     if LOG_CHAT_ID:
         try:
-            if len(tb_string) > 3000:
-                with io.BytesIO(str.encode(tb_string)) as f:
-                    f.name = "traceback.txt"
-                    await context.bot.send_document(LOG_CHAT_ID, document=f, caption=message, parse_mode=ParseMode.HTML)
-            else:
-                await context.bot.send_message(LOG_CHAT_ID, f"{message}\n\n<b>Traceback:</b>\n<code>{utils.safe_escape(tb_string)}</code>", parse_mode=ParseMode.HTML)
-        except:
-            pass
+            with io.BytesIO(str.encode(tb_string)) as traceback_file:
+                filename = f"traceback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                traceback_file.name = filename
+                
+                await context.bot.send_document(
+                    chat_id=LOG_CHAT_ID,
+                    document=traceback_file,
+                    caption=summary_message,
+                    parse_mode=ParseMode.HTML
+                )
+        except Exception as e:
+            logger.critical(f"Could not send traceback file: {e}")
+            try:
+                await context.bot.send_message(
+                    LOG_CHAT_ID, 
+                    f"<b>Critical Error:</b> Failed to send traceback file.\nError: {e}"
+                )
+            except:
+                pass
 
 @bot_command(["sudolist", "sudos"])
 async def sudolist_cmd(update, context):
