@@ -163,7 +163,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_html(log_msg)
         if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
     else:
-        await update.message.reply_text("User is not globally banned.")
+        await update.message.reply_text(f"User {user_link} [<code>{target_id}</code>] is not globally banned.")
 
 async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
