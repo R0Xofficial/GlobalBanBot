@@ -9,6 +9,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from config import TOKEN, OWNER_ID, LOG_CHAT_ID, APPEAL_CHAT_USERNAME
 import database as db
 import utils
+from handlers import bot_command, command_router
 
 BOT_START_TIME = datetime.now(timezone.utc)
 
@@ -110,6 +111,7 @@ async def check_gban_on_message(update: Update, context: ContextTypes.DEFAULT_TY
 
 # --- COMMANDS ---
 
+@bot_command("ping")
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start_time = time.time()
     
@@ -133,6 +135,7 @@ async def get_readable_time(seconds: int) -> str:
             result.append(f"{period_value}{period_name}")
     return ", ".join(result) if result else "0s"
 
+@bot_command("uptime")
 async def uptime_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Shows how long the bot has been running."""
     from config import BOT_START_TIME
@@ -146,6 +149,7 @@ async def uptime_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>Running for:</b> <code>{readable_uptime}</code>"
     )
 
+@bot_command("gban")
 async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin = update.effective_user
     chat = update.effective_chat
@@ -190,6 +194,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_html(log_msg)
     if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
 
+@bot_command("ungban")
 async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin = update.effective_user
     chat = update.effective_chat
@@ -220,9 +225,25 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    f"<b>Admin:</b> {admin_link} [<code>{admin.id}</code>]")
         await update.message.reply_html(log_msg)
         if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
+        context.job_queue.run_once(propagate_unban, when=1, data={'user_id': target_id})
     else:
         await update.message.reply_text(f"User {user_link} [<code>{target_id}</code>] is not globally banned.")
 
+async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
+    job_data = context.job.data
+    user_id = job_data['user_id']
+    
+    with sqlite3.connect(DB_NAME) as conn:
+        chats = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
+
+    for (chat_id,) in chats:
+        try:
+            await context.bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
+            await asyncio.sleep(0.1) 
+        except Exception:
+            continue
+
+@bot_command("gbanstat")
 async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     sudo = db.is_sudo(user.id)
@@ -246,6 +267,7 @@ async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else: msg = f"<b>{title}</b>\n<b>User:</b> {u_link} [<code>{target_id}</code>]\n\n<b>Status:</b> Not Banned"
     await update.message.reply_html(msg)
 
+@bot_command("addsudo")
 async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: 
         return
@@ -270,6 +292,7 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Done! User {user_link} [<code>{target_id}</code>] has been added to the <b>Sudo list</b>."
     )
 
+@bot_command("delsudo")
 async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: 
         return
@@ -298,6 +321,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("This user was not in the Sudo list.")
 
+@bot_command("enforceban")
 async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if not chat or chat.type == ChatType.PRIVATE: return
@@ -332,6 +356,7 @@ async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYP
             f"Use: <code>/enforcegban on</code> or <code>/enforcegban off</code>"
         )
 
+@bot_command("stats")
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not db.is_sudo(update.effective_user.id): return
     
@@ -346,6 +371,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
            f"• <b>Total Chats:</b> <code>{chats}</code>")
     await update.message.reply_html(msg)
 
+@bot_command("databackup")
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     try:
@@ -354,6 +380,42 @@ async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Backup sent to your PM.")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
+
+@bot_command("cleanup")
+async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: 
+        return
+
+    status_msg = await update.message.reply_text("Starting database cleanup... Please wait.")
+    
+    with sqlite3.connect(DB_NAME) as conn:
+        chats = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
+
+    total = len(chats)
+    removed = 0
+    checked = 0
+
+    for (chat_id,) in chats:
+        try:
+            await context.bot.get_chat(chat_id)
+            checked += 1
+        except Exception as e:
+            db.remove_chat(chat_id)
+            removed += 1
+        
+        if checked % 10 == 0:
+            await asyncio.sleep(0.5)
+
+    # Finalny raport
+    await status_msg.edit_text(
+        f"<b>Cleanup complete!</b>\n\n"
+        f"• Total chats in DB: <code>{total}</code>\n"
+        f"• Removed: <code>{removed}</code>\n"
+        f"• Active: <code>{total - removed}</code>",
+        parse_mode=ParseMode.HTML
+    )
+    
+# --- main.py ---
 
 # --- MAIN ---
 
@@ -370,6 +432,7 @@ def main():
     app.add_handler(CommandHandler("delsudo", delsudo_command))
     app.add_handler(CommandHandler("enforcegban", enforce_gban_command))
     app.add_handler(CommandHandler("databackup", backup_command))
+    app.add_handler(CommandHandler("cleanup", cleanup_cmd))
 
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-10)
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, check_gban_on_exit), group=-10)
