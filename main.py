@@ -585,7 +585,7 @@ async def restart_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
     try:
-        await update.message.reply_html("<b>Restarting...</b>")
+        await update.message.reply_html("Restarting...")
         if LOG_CHAT_ID:
             await context.bot.send_message(LOG_CHAT_ID, "Rebooting system...")
     except Exception as e:
