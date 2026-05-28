@@ -342,19 +342,22 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You are already the Master Owner.")
         return
 
+    if db.is_sudo(target_id):
+        user_link = await utils.create_user_link(target_id, context)
+        await update.message.reply_html(f"User {user_link} [<code>{target_id}</code>] is <b>already</b> sudo.")
+        return
+
     db.add_sudo(target_id)
-    
     user_link = await utils.create_user_link(target_id, context)
     curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     log_msg = (f"<b>#SUDO</b>\n"
-               f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
-               f"<b>Date:</b> <code>{curr_time}</code>")
+                f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
+                f"<b>Date:</b> <code>{curr_time}</code>")
 
     await update.message.reply_html(log_msg)
     if LOG_CHAT_ID:
         await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
-
 
 @bot_command("delsudo")
 async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
