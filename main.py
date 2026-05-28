@@ -301,6 +301,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin = update.effective_user
     chat = update.effective_chat
+    thread_id = update.effective_message.message_thread_id
     if not db.is_sudo(admin.id): return
     target_id = None
     if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
@@ -336,10 +337,10 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # await utils.send_safe_reply(update, context, log_msg)
         if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
         context.job_queue.run_once(propagate_unban, when=1, data={
-            'user_id': target_id, 
+            'user_id': target_id,
             'chat_id': chat.id,
             'reply_to': update.message.message_id,
-            'thread_id': update.message.message_thread_id if update.message.is_topic_message else None
+            'thread_id': thread_id
         })
     else:
         await update.message.reply_text(f"User {user_link} [<code>{target_id}</code>] is not globally banned.")
@@ -347,8 +348,10 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
     start_time = time.time()
     job_data = context.job.data
-    user_id, target_chat_id = job_data['user_id'], job_data['chat_id']
-    command_msg_id, thread_id = job_data['reply_to'], job_data.get('thread_id')
+    user_id = job_data['user_id']
+    target_chat_id = job_data['chat_id']
+    command_msg_id = job_data['reply_to']
+    thread_id = job_data.get('thread_id')
     
     with sqlite3.connect(DB_NAME) as conn:
         chats = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
