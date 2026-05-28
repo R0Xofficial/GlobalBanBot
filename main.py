@@ -38,7 +38,7 @@ async def chat_logger_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         if db.log_chat(chat.id):
             logger.info(f"New chat discovered and saved to DB: {chat.title} [{chat.id}]")
             # if LOG_CHAT_ID:
-            #    await context.bot.send_message(LOG_CHAT_ID, f"📡 <b>New Chat Discovered:</b>\n{utils.safe_escape(chat.title)} [<code>{chat.id}</code>]", parse_mode=ParseMode.HTML)
+            #    await context.bot.send_message(LOG_CHAT_ID, f"<b>New Chat Discovered:</b>\n{utils.safe_escape(chat.title)} [<code>{chat.id}</code>]", parse_mode=ParseMode.HTML)
 
 # --- PROTECTION LOGIC ---
 
