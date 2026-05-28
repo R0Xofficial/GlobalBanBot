@@ -142,7 +142,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• <code>/help</code> - Sends a message with available commands for you.\n"
         "• <code>/ping</code> - Check bot latency.\n"
         "• <code>/uptime</code> - See how long bot is running.\n"
-        "• <code>/enforcegban &lt;on/off&gt;</code> - Toggle protection on current chat (Owner only).\n"
+        "• <code>/enforcegban</code> &lt;on/off&gt; - Toggle protection on current chat (Owner only).\n"
         "• <code>/gbanstat</code> - Check your own ban status.\n\n"
     )
 
@@ -150,8 +150,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         help_text += (
             "<b>Sudo Commands:</b>\n"
             "• <code>/gban</code> &lt;target&gt; &lt;reason&gt;</code> - Issue a global ban.\n"
-            "• <code>/ungban</code> &lt;target&gt;</code> - Revoke a global ban.\n"
-            "• <code>/gbanstat</code> &lt;target&gt;</code> - Check user's detailed ban info.\n"
+            "• <code>/ungban</code> &lt;target&gt; - Revoke a global ban.\n"
+            "• <code>/gbanstat</code> &lt;target&gt; - Check user's detailed ban info.\n"
             "• <code>/stats</code> - View database statistics.\n"
             "• <code>/sudolist</code> - Show all bot administrators.\n"
             "• <code>/leave</code> - Bot leaving chat.\n"
@@ -160,8 +160,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_owner:
         help_text += (
             "<b>Master Owner Commands:</b>\n"
-            "• <code>/addsudo</code> &lt;target&gt;</code> - Grant sudo privileges.\n"
-            "• <code>/delsudo</code> &lt;target&gt;</code> - Revoke sudo privileges.\n"
+            "• <code>/addsudo</code> &lt;target&gt; - Grant sudo privileges.\n"
+            "• <code>/delsudo</code> &lt;target&gt; - Revoke sudo privileges.\n"
             "• <code>/cleanup</code> - Remove inactive chats from database.\n"
             "• <code>/restart</code> - Restart bot.\n"
             "• <code>/update</code> - Update bot to latest code.\n"
