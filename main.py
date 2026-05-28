@@ -364,7 +364,7 @@ async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             db.remove_chat(chat_id)
             
-        await asyncio.sleep(0.3)
+        # await asyncio.sleep(0.3)
 
     duration = round(time.time() - start_time, 2)
     final_text = f"User has been un-gbanned.\nTime taken: <code>{duration}s</code>"
