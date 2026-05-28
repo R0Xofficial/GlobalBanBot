@@ -307,7 +307,9 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
         target_id, _ = await utils.resolve_id(update, context, context.args[0])
-    
+
+    if db.is_sudo(target_id) or target_id == context.bot.id:
+        await update.message.reply_text("Privileged users is never gbanned..."); return
     if not target_id:
         await update.message.reply_text("Who is the target of the command? The stars in the sky?"); return
 
