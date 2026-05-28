@@ -57,7 +57,7 @@ async def check_gban_on_entry(update: Update, context: ContextTypes.DEFAULT_TYPE
                 user_link = await utils.create_user_link(member.id, context)
                 
                 msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                       f"<i>I banned him!</i>\n"
+                       f"<i>I banned him here!</i>\n"
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{member.id}</code>]\n"
                        f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n"
@@ -85,7 +85,7 @@ async def check_gban_on_exit(update: Update, context: ContextTypes.DEFAULT_TYPE)
             user_link = await utils.create_user_link(user.id, context)
             
             # msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                    # f"<i>I banned him!</i>\n"
+                    # f"<i>I banned him here!</i>\n"
                     # f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                     # f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
                     # f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n")
@@ -113,7 +113,7 @@ async def check_gban_on_message(update: Update, context: ContextTypes.DEFAULT_TY
             user_link = await utils.create_user_link(user.id, context)
             
             msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                       f"<i>I banned him!</i>\n"
+                       f"<i>I banned him here!</i>\n"
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
                        f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n")
