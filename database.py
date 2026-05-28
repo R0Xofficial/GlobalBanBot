@@ -34,21 +34,22 @@ def get_user_by_username(username):
         res = conn.execute("SELECT user_id FROM users WHERE username = ?", (username,)).fetchone()
         return res[0] if res else None
 
-def is_sudo(user_id):
-    if user_id == OWNER_ID: return True
-    with sqlite3.connect(DB_NAME) as conn:
-        res = conn.execute("SELECT 1 FROM sudo_users WHERE user_id = ?", (user_id,)).fetchone()
-        return res is not None
-
 def add_sudo(user_id):
     with sqlite3.connect(DB_NAME) as conn:
-        conn.execute("INSERT OR IGNORE INTO sudo_users VALUES (?)", (user_id,))
+        conn.execute("INSERT OR IGNORE INTO sudo_users (user_id) VALUES (?)", (int(user_id),))
         conn.commit()
 
 def remove_sudo(user_id):
     with sqlite3.connect(DB_NAME) as conn:
-        conn.execute("DELETE FROM sudo_users WHERE user_id = ?", (user_id,))
+        cursor = conn.execute("DELETE FROM sudo_users WHERE user_id = ?", (int(user_id),))
         conn.commit()
+        return cursor.rowcount > 0
+
+def is_sudo(user_id):
+    if int(user_id) == OWNER_ID: return True
+    with sqlite3.connect(DB_NAME) as conn:
+        res = conn.execute("SELECT 1 FROM sudo_users WHERE user_id = ?", (int(user_id),)).fetchone()
+        return res is not None
 
 def get_gban(user_id):
     with sqlite3.connect(DB_NAME) as conn:
