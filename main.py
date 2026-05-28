@@ -471,7 +471,7 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         should_remove = False
         try:
             member = await context.bot.get_chat_member(chat_id, bot_id)
-            if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED, ChatMemberStatus.KICKED]:
+            if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
                 should_remove = True
         except Exception as e:
             should_remove = True
