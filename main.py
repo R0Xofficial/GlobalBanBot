@@ -63,12 +63,11 @@ async def check_gban_on_entry(update: Update, context: ContextTypes.DEFAULT_TYPE
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
                 
                 await context.bot.send_message(chat.id, text=msg, parse_mode=ParseMode.HTML)
-            except Exception as e:
-                logger.error(f"Gban Entry Error: {e}")
                 raise ApplicationHandlerStop()
             except ApplicationHandlerStop:
                 raise
-            except: pass
+            except Exception as e:
+                logger.error(f"Gban Entry Error: {e}")
 
 async def check_gban_on_exit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.left_chat_member:
@@ -94,13 +93,11 @@ async def check_gban_on_exit(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
             
             await context.bot.send_message(chat.id, text=msg, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logger.error(f"Gban Exit Error: {e}")
-
             raise ApplicationHandlerStop()
         except ApplicationHandlerStop:
             raise
-        except: pass
+        except Exception as e:
+            logger.error(f"Gban Exit Error: {e}")
 
 async def check_gban_on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
@@ -127,13 +124,11 @@ async def check_gban_on_message(update: Update, context: ContextTypes.DEFAULT_TY
                    f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
             
             await context.bot.send_message(chat.id, text=msg, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logger.error(f"Gban Message Error: {e}")
-
             raise ApplicationHandlerStop()
         except ApplicationHandlerStop:
             raise
-        except: pass
+        except Exception as e:
+            logger.error(f"Gban Message Error: {e}")
 
 # --- COMMANDS ---
 
