@@ -225,7 +225,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_id = update.message.reply_to_message.from_user.id
         reason = " ".join(context.args) if context.args else None
     elif context.args:
-        target_id, err = await utils.resolve_id(context, context.args[0])
+        target_id, err = await utils.resolve_id(update, context, context.args[0])
         if err: await update.message.reply_text(err); return
         reason = " ".join(context.args[1:]) if len(context.args) > 1 else None
 
@@ -280,7 +280,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
-        target_id, _ = await utils.resolve_id(context, context.args[0])
+        target_id, _ = await utils.resolve_id(update, context, context.args[0])
     
     if not target_id:
         await update.message.reply_text("Who is the target of the command? The stars in the sky?"); return
@@ -347,7 +347,7 @@ async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if sudo:
         if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
             target_id = update.message.reply_to_message.from_user.id
-        elif context.args: target_id, _ = await utils.resolve_id(context, context.args[0])
+        elif context.args: target_id, _ = await utils.resolve_id(update, context, context.args[0])
     if not target_id: target_id = user.id
     
     ban = db.get_gban(target_id)
@@ -373,7 +373,7 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
-        target_id, err = await utils.resolve_id(context, context.args[0])
+        target_id, err = await utils.resolve_id(update, context, context.args[0])
         if err: 
             await update.message.reply_text(err)
             return
@@ -411,7 +411,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
-        target_id, err = await utils.resolve_id(context, context.args[0])
+        target_id, err = await utils.resolve_id(update, context, context.args[0])
         if err: 
             await update.message.reply_text(err)
             return
