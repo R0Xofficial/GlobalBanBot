@@ -648,6 +648,30 @@ async def leave_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Bot left chat {chat_id} via leave command.")
     except Exception as e:
         logger.error(f"Error while leaving chat {chat_id}: {e}")
+
+@bot_command("restore")
+async def restore_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        return
+
+    message = update.effective_message
+    document = message.document or (message.reply_to_message.document if message.reply_to_message else None)
+
+    if not document:
+        await message.reply_text("Send a <code>.db</code> file or reply to one with this command.", parse_mode=ParseMode.HTML)
+        return
+
+    try:
+        new_db_file = await context.bot.get_file(document.file_id)
+        
+        await new_db_file.download_to_drive(DB_NAME)
+        
+        await message.reply_text("Backup restored. Restarting system...")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    except Exception as e:
+        logger.error(f"Restore failed: {e}")
+        await message.reply_text(f"Error: <code>{str(e)}</code>", parse_mode=ParseMode.HTML)
     
 # --- main.py ---
 
