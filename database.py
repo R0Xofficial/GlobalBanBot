@@ -28,6 +28,15 @@ def log_user(user_id, username, first_name):
                      (user_id, username.lower() if username else None, first_name))
         conn.commit()
 
+def log_chat(chat_id):
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO bot_chats (chat_id, enforce_gban) VALUES (?, ?)", 
+            (chat_id, 1)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
 def get_user_by_username(username):
     username = username.lstrip('@').lower()
     with sqlite3.connect(DB_NAME) as conn:
@@ -81,11 +90,6 @@ def remove_chat(chat_id):
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("DELETE FROM bot_chats WHERE chat_id = ?", (chat_id,))
         conn.commit()
-
-def get_all_chats():
-    with sqlite3.connect(DB_NAME) as conn:
-        res = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
-        return {row[0] for row in res}
 
 def get_all_sudos():
     with sqlite3.connect(DB_NAME) as conn:
