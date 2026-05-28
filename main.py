@@ -138,21 +138,19 @@ async def send_startup_log(context: ContextTypes.DEFAULT_TYPE):
 
 @bot_command("help")
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Wyświetla listę dostępnych komend."""
     user_id = update.effective_user.id
     is_sudo = db.is_sudo(user_id)
     is_owner = (user_id == OWNER_ID)
 
-    # --- Sekcja dla każdego ---
     help_text = (
         "<b>Global Ban Bot Help</b>\n\n"
         "<b>User Commands:</b>\n"
         "• <code>/ping</code> - Check bot latency.\n"
         "• <code>/uptime</code> - See how long bot is running.\n"
+        "• <code>/enforcegban &lt;on/off&gt;</code> - Toggle protection on current chat.\n\n"
         "• <code>/gbanstat</code> - Check your own ban status.\n\n"
     )
 
-    # --- Sekcja dla Sudo ---
     if is_sudo:
         help_text += (
             "<b>Sudo Commands:</b>\n"
@@ -161,10 +159,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• <code>/gbanstat &lt;target&gt;</code> - Check user's detailed ban info.\n"
             "• <code>/stats</code> - View database statistics.\n"
             "• <code>/sudolist</code> - Show all bot administrators.\n"
-            "• <code>/enforcegban &lt;on/off&gt;</code> - Toggle protection on current chat.\n\n"
         )
 
-    # --- Sekcja dla Właściciela ---
     if is_owner:
         help_text += (
             "<b>Master Owner Commands:</b>\n"
@@ -219,7 +215,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if not db.is_sudo(admin.id): return
     target_id, reason = None, None
-    if update.message.reply_to_message:
+    if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
         reason = " ".join(context.args) if context.args else None
     elif context.args:
@@ -260,7 +256,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if not db.is_sudo(admin.id): return
     target_id = None
-    if update.message.reply_to_message:
+    if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
         target_id, _ = await utils.resolve_id(context, context.args[0])
@@ -306,7 +302,8 @@ async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sudo = db.is_sudo(user.id)
     target_id = None
     if sudo:
-        if update.message.reply_to_message: target_id = update.message.reply_to_message.from_user.id
+        if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
+            target_id = update.message.reply_to_message.from_user.id
         elif context.args: target_id, _ = await utils.resolve_id(context, context.args[0])
     if not target_id: target_id = user.id
     
@@ -326,12 +323,11 @@ async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @bot_command("addsudo")
 async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Dodaje użytkownika do listy Sudo (Tylko Owner)."""
     if update.effective_user.id != OWNER_ID: 
         return
     
     target_id = None
-    if update.message.reply_to_message:
+    if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
         target_id, err = await utils.resolve_id(context, context.args[0])
@@ -341,6 +337,9 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     if not target_id:
         await update.message.reply_text("Who is the target of the command? The stars in the sky?")
+        return
+    if target_id == OWNER_ID:
+        await update.message.reply_text("You are already the Master Owner.")
         return
 
     db.add_sudo(target_id)
@@ -363,7 +362,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     target_id = None
-    if update.message.reply_to_message:
+    if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
     elif context.args:
         target_id, err = await utils.resolve_id(context, context.args[0])
@@ -379,7 +378,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("LoL... You cannot remove yourself.")
         return
 
-    if db.db_query("DELETE FROM sudo_users WHERE user_id = ?", (target_id,), commit=True).rowcount > 0:
+    if db.remove_sudo(target_id):
         user_link = await utils.create_user_link(target_id, context)
         curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
