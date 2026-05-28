@@ -457,7 +457,7 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: 
         return
 
-    status_msg = await update.message.reply_text("🧹 Starting deep database cleanup... Checking bot status on each chat.")
+    status_msg = await update.message.reply_text("Starting chat database cleanup...")
     
     with sqlite3.connect(DB_NAME) as conn:
         chats = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
