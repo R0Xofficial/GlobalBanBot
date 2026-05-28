@@ -237,8 +237,6 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("LoL, looks like... Someone tried gban privileged user. Nice Try."); return
 
     old_ban = db.get_gban(target_id)
-    await update.message.reply_html("Ok!")
-    await asyncio.sleep(0.5)
 
     if chat.type == ChatType.PRIVATE:
         chat_display = f"PM with {utils.safe_escape(admin.first_name)}"
@@ -269,6 +267,9 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_html(log_msg)
     if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
+
+    await asyncio.sleep(0.5)
+    await update.message.reply_html("Done! Gbanned")
 
 @bot_command("ungban")
 async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
