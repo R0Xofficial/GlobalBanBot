@@ -312,7 +312,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                f"<b>Reason:</b> <code>{utils.safe_escape(reason)}</code>\n")
     if old_ban: log_msg += f"<b>Old Reason:</b> <code>{utils.safe_escape(old_ban[0])}</code>\n"
     log_msg += f"<b>Date:</b> <code>{curr_time}</code>\n<b>Admin:</b> {admin_link} [<code>{admin.id}</code>]"
-
+    if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
     # await utils.send_safe_reply(update, context, log_msg)
 
     await asyncio.sleep(0.5)
