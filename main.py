@@ -122,6 +122,10 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.log_chat(chat.id)
         db.log_user_in_chat(user.id, chat.id)
         # logger.info(f"Radar: Logged join for {user.id} in {chat.id}")
+    if is_leaving:
+        db.log_user(user.id, user.username, user.first_name)
+        db.log_chat(chat.id)
+        db.log_user_in_chat(user.id, chat.id)
 
 async def enforcer_message_checker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Checker: Bans users who are already in chat and try to speak."""
