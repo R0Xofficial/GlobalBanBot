@@ -369,7 +369,6 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await utils.send_safe_reply(update, context, f"User {user_link} [<code>{target_id}</code>] is not globally banned.")
 
 async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
-    """Astrako Style: High-speed unban using chat mapping."""   
     start_time = time.time()
     job_data = context.job.data
     user_id = job_data['user_id']
