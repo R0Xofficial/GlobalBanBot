@@ -416,7 +416,7 @@ async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
     duration = round(time.time() - start_time, 2)
     final_text = f"User has been un-gbanned.\nTime taken: <code>{duration}s</code>"
     
-        try:
+    try:
         if is_private:
             await context.bot.send_message(
                 chat_id=target_chat_id, 
