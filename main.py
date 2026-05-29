@@ -91,17 +91,23 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     is_joining = (status_after == ChatMemberStatus.MEMBER and status_before != ChatMemberStatus.MEMBER)
-    is_leaving = (status_after in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED] and status_before == ChatMemberStatus.MEMBER)
+    is_leaving = (status_after == ChatMemberStatus.LEFT and status_before == ChatMemberStatus.MEMBER)
+    is_banned = (status_after == ChatMemberStatus.BANNED and status_before != ChatMemberStatus.BANNED)
 
-    if not (is_joining or is_leaving): 
+    if not (is_joining or is_leaving or is_banned): 
         return
+
+    if is_joining or is_leaving or is_banned:
+        db.log_user(user.id, user.username, user.first_name)
+        db.log_chat(chat.id)
+        db.log_user_in_chat(user.id, chat.id)
 
     # 2. Check for Global Ban
     ban_info = db.get_gban(user.id)
     if ban_info:
         try:
             await context.bot.ban_chat_member(chat.id, user.id)
-            if is_joining:
+            if is_joining or is_leaving:
                 user_link = await utils.create_user_link(user.id, context)
                 msg = (f"<b>Alert!</b> Detected globally banned user.\n"
                        f"<i>I banned him here!</i>\n"
@@ -114,14 +120,6 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             raise ApplicationHandlerStop()
         except ApplicationHandlerStop: raise
         except: pass
-
-    # 3. IF NOT BANNED -> LOG DATA
-    # If the user is clean and just joined, we map them immediately
-    if is_joining or is_leaving:
-        db.log_user(user.id, user.username, user.first_name)
-        db.log_chat(chat.id)
-        db.log_user_in_chat(user.id, chat.id)
-        # logger.info(f"Radar: Logged join for {user.id} in {chat.id}")
 
 async def enforcer_message_checker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Checker: Bans users who are already in chat and try to speak."""
