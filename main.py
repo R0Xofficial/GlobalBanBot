@@ -535,7 +535,9 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @bot_command("enforceban")
 async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    if not chat or chat.type == ChatType.PRIVATE: return
+    if not chat or chat.type == ChatType.PRIVATE:
+        await update.message.reply_text("This command can only be used on a group.")
+        return
     
     member = await chat.get_member(update.effective_user.id)
     is_sudo = db.is_sudo(update.effective_user.id)
