@@ -660,14 +660,14 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<i>Full traceback is attached as a file.</i>"
     )
 
-    if LOG_CHAT_ID:
+    if OWNER_ID:
         try:
             with io.BytesIO(str.encode(tb_string)) as traceback_file:
                 filename = f"traceback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 traceback_file.name = filename
                 
                 await context.bot.send_document(
-                    chat_id=LOG_CHAT_ID,
+                    chat_id=OWNER_ID,
                     document=traceback_file,
                     caption=summary_message,
                     parse_mode=ParseMode.HTML
@@ -676,7 +676,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             logger.critical(f"Could not send traceback file: {e}")
             try:
                 await context.bot.send_message(
-                    LOG_CHAT_ID, 
+                    OWNER_ID, 
                     f"<b>Critical Error:</b> Failed to send traceback file.\nError: {e}"
                 )
             except:
