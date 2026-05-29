@@ -314,7 +314,10 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # await utils.send_safe_reply(update, context, log_msg)
 
     await asyncio.sleep(0.5)
-    await utils.send_safe_reply(update, context, "Done! Gbanned.")
+    if old_ban:
+        await utils.send_safe_reply(update, context, f"Done! Gban reason updated.\n<b>Old Reason:</b> <code>{utils.safe_escape(old_ban[0])}</code>")
+    else:
+        await utils.send_safe_reply(update, context, f"Done! Gbanned.")
 
 @bot_command("ungban")
 async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
