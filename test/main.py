@@ -28,101 +28,123 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # --- LOGGERS ---
-async def log_user_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def passive_data_logger(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Quietly records user and chat data to support global ban efficiency."""
     user = update.effective_user
-    if user and not user.is_bot:
-        db.log_user(user.id, user.username, user.first_name)
-
-async def chat_logger_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     
-    if chat and chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-        db.log_chat(chat.id)
+    # We only log real users to keep the database clean
+    if user and not user.is_bot:
+        # 1. Update user identity in cache (id, username, first_name)
+        db.log_user(user.id, user.username, user.first_name)
+        
+        if chat and chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+            # 2. Ensure the chat is registered in our records
+            db.log_chat(chat.id)
+            # 3. Map user to this chat (needed for fast unbanning later)
+            db.log_user_in_chat(user.id, chat.id)
         
 # --- PROTECTION LOGIC ---
 
-async def check_gban_on_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or not update.message.new_chat_members:
-        return
-    
-    chat = update.effective_chat
-    if not db.is_enforced(chat.id): return
-
-    for member in update.message.new_chat_members:
-        if member.is_bot or db.is_sudo(member.id): continue
+async def gban_enforcer_action(user, chat, update: Update, context: ContextTypes.DEFAULT_TYPE, send_alert: bool = True):
+    """Internal helper to execute the ban and send alerts."""
+    ban_info = db.get_gban(user.id)
+    if ban_info:
+        try:
+            # 1. Ban the user technically across Telegram
+            await context.bot.ban_chat_member(chat.id, user.id)
             
-        ban_info = db.get_gban(member.id)
-        if ban_info:
-            try:
-                await context.bot.ban_chat_member(chat.id, member.id)
-                
-                user_link = await utils.create_user_link(member.id, context)
-                
+            # 2. Send alert message only if requested (usually on Join or Message)
+            if send_alert:
+                user_link = await utils.create_user_link(user.id, context)
                 msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                       f"<i>I banned him here!</i>\n"
-                       f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
-                       f"<b>User:</b> {user_link} [<code>{member.id}</code>]\n"
+                       f"<i>Enforcing ban in this chat.</i>\n\n"
+                       f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
                        f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n"
-                       )
+                       f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
                 
-                await context.bot.send_message(chat.id, text=msg, parse_mode=ParseMode.HTML)
-            except Exception as e:
-                logger.error(f"Gban Entry Error: {e}")
+                # Send as a fresh message to avoid "Message not found" errors
+                await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
+            
+            # 3. Stop processing other handlers (Security Layering)
+            raise ApplicationHandlerStop()
+        except ApplicationHandlerStop:
+            raise
+        except Exception as e:
+            logger.error(f"Enforcer execution failed in {chat.id}: {e}")
 
-async def check_gban_on_exit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or not update.message.left_chat_member:
-        return
+async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Radar: Detects joins/leaves AND logs clean users for the federation map."""
+    result = update.chat_member
+    if not result: return
     
     chat = update.effective_chat
-    if not db.is_enforced(chat.id): return
+    # 1. Registration check
+    if not db.is_enforced(chat.id): 
+        return
 
-    user = update.message.left_chat_member
-    if user.is_bot or db.is_sudo(user.id): return
+    status_before = result.old_chat_member.status
+    status_after = result.new_chat_member.status
+    user = result.new_chat_member.user
 
+    if user.is_bot or db.is_sudo(user.id): 
+        return
+
+    is_joining = (status_after == ChatMemberStatus.MEMBER and status_before != ChatMemberStatus.MEMBER)
+    is_leaving = (status_after in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED] and status_before == ChatMemberStatus.MEMBER)
+
+    if not (is_joining or is_leaving): 
+        return
+
+    # 2. Check for Global Ban
     ban_info = db.get_gban(user.id)
     if ban_info:
         try:
             await context.bot.ban_chat_member(chat.id, user.id)
-            
-            # user_link = await utils.create_user_link(user.id, context)
-            
-            # msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                    # f"<i>I banned him here!</i>\n"
-                    # f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
-                    # f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
-                    # f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n")
-            
-            # await context.bot.send_message(chat.id, text=msg, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logger.error(f"Gban Exit Error: {e}")
-
-async def check_gban_on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    if not chat or chat.type == ChatType.PRIVATE: return
-    if not db.is_enforced(chat.id): return
-
-    user = update.effective_user
-    if not user or user.is_bot or db.is_sudo(user.id): return
-
-    ban_info = db.get_gban(user.id)
-    if ban_info:
-        try:
-            await context.bot.ban_chat_member(chat.id, user.id)
-            if update.effective_message:
-                try: await update.effective_message.delete()
-                except: pass
-            
-            user_link = await utils.create_user_link(user.id, context)
-            
-            msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                       f"<i>I banned him here!</i>\n"
+            if is_joining:
+                user_link = await utils.create_user_link(user.id, context)
+                msg = (f"⚠️ <b>Alert!</b> I found a user who is globally banned.\n"
+                       f"<i>I banned him here!</i>"
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
                        f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n")
+                await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
             
-            await context.bot.send_message(chat.id, text=msg, parse_mode=ParseMode.HTML)
-        except Exception as e:
-            logger.error(f"Gban Message Error: {e}")
+            # Stop the process if banned
+            raise ApplicationHandlerStop()
+        except ApplicationHandlerStop: raise
+        except: pass
+
+    # 3. IF NOT BANNED -> LOG DATA
+    # If the user is clean and just joined, we map them immediately
+    if is_joining:
+        db.log_user(user.id, user.username, user.first_name)
+        db.log_chat(chat.id)
+        db.log_user_in_chat(user.id, chat.id)
+        # logger.info(f"Radar: Logged join for {user.id} in {chat.id}")
+
+async def enforcer_message_checker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Checker: Bans users who are already in chat and try to speak."""
+    chat = update.effective_chat
+    user = update.effective_user
+    
+    if not chat or chat.type == ChatType.PRIVATE or not user:
+        return
+    
+    # Ignore system service messages to prevent duplicate alerts
+    if update.message and (update.message.new_chat_members or update.message.left_chat_member):
+        return
+
+    if not db.is_enforced(chat.id) or db.is_sudo(user.id):
+        return
+
+    # Active user check: Ban + Delete Message + Alert
+    ban_info = db.get_gban(user.id)
+    if ban_info:
+        if update.effective_message:
+            try: await update.effective_message.delete()
+            except: pass
+        await gban_enforcer_action(user, chat, update, context, send_alert=True)
 
 # --- COMMANDS ---
 
@@ -292,7 +314,6 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_msg += f"<b>Date:</b> <code>{curr_time}</code>\n<b>Admin:</b> {admin_link} [<code>{admin.id}</code>]"
 
     # await utils.send_safe_reply(update, context, log_msg)
-    if LOG_CHAT_ID: await context.bot.send_message(LOG_CHAT_ID, log_msg, parse_mode=ParseMode.HTML)
 
     await asyncio.sleep(0.5)
     await utils.send_safe_reply(update, context, "Done! Gbanned.")
@@ -348,6 +369,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"User {user_link} [<code>{target_id}</code>] is not globally banned.")
 
 async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
+    """Astrako Style: High-speed unban using chat mapping."""   
     start_time = time.time()
     job_data = context.job.data
     user_id = job_data['user_id']
@@ -355,57 +377,55 @@ async def propagate_unban(context: ContextTypes.DEFAULT_TYPE):
     command_msg_id = job_data['reply_to']
     thread_id = job_data.get('thread_id')
     is_private = job_data.get('is_private', False)
+
+    # 1. FETCH ONLY RELATED CHATS (Federation Mapping)
+    # Instead of all chats, we only target where the user was seen.
+    chats = db.get_user_seen_chats(user_id)
     
-    with sqlite3.connect(DB_NAME) as conn:
-        chats = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
+    # Always include the current chat in the sync list
+    if target_chat_id not in chats:
+        chats.append(target_chat_id)
 
-    logger.info(f"Starting unban for {user_id} on {len(chats)} chats.")
+    logger.info(f"Starting unban for {user_id} on {len(chats)} known chats.")
 
-    for (chat_id,) in chats:
+    for chat_id in chats:
         try:
+            # Silent unban: Telegram handles the check via only_if_banned
             await context.bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
                 
         except Forbidden:
+            # Bot was kicked or blocked -> Remove chat from DB
             db.remove_chat(chat_id)
             
         except BadRequest as e:
             err = str(e).lower()
             if any(x in err for x in ["chat not found", "bot was kicked", "not member"]):
                 db.remove_chat(chat_id)
-            elif "not enough rights" in err:
-                pass
             
         except RetryAfter as e:
-            logger.warning(f"FloodWait in {chat_id}: Sleeping for {e.retry_after}s")
+            # Respect Telegram's flood limits
             await asyncio.sleep(e.retry_after)
             
-        except (TimedOut, Exception) as e:
-            logger.warning(f"Unban bug in {chat_id}: {e}")
+        except (TimedOut, Exception):
+            pass
             
+        # Very short sleep because we have very few requests to make now
         await asyncio.sleep(0.05)
 
+    # 2. FINAL REPORT
     duration = round(time.time() - start_time, 2)
     final_text = f"User has been un-gbanned.\nTime taken: <code>{duration}s</code>"
     
     try:
         if is_private:
-            await context.bot.send_message(
-                chat_id=target_chat_id, 
-                text=final_text, 
-                parse_mode=ParseMode.HTML
-            )
+            await context.bot.send_message(chat_id=target_chat_id, text=final_text, parse_mode=ParseMode.HTML)
         else:
             await context.bot.send_message(
                 chat_id=target_chat_id, text=final_text, parse_mode=ParseMode.HTML,
-                reply_to_message_id=command_msg_id
+                reply_to_message_id=command_msg_id, message_thread_id=thread_id
             )
     except:
-        try:
-            await context.bot.send_message(
-                chat_id=target_chat_id, text=final_text, 
-                parse_mode=ParseMode.HTML, message_thread_id=thread_id
-            )
-        except: pass
+        pass
         
 @bot_command("gbanstat")
 async def gbanstat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -808,10 +828,8 @@ def main():
     app.add_handler(MessageHandler(filters.Regex(r'^[!/]\w+'), command_router), group=1)    
 
     app.add_handler(MessageHandler(filters.ALL, chat_logger_handler), group=-15)
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-10)
-    app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, check_gban_on_exit), group=-10)
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, check_gban_on_message), group=-10)
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, log_user_handler), group=0)
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, enforcer_message_checker), group=-100)
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, passive_data_logger), group=10)
 
     if app.job_queue:
         app.job_queue.run_once(send_startup_log, when=1)
