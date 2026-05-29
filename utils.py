@@ -1,6 +1,7 @@
 # --- utils.py ---
 import html
 import database as db
+import telegram
 from telegram import Update
 from telegram.constants import ChatType
 
