@@ -57,11 +57,11 @@ async def gban_enforcer_action(user, chat, update: Update, context: ContextTypes
             # 2. Send alert message only if requested (usually on Join or Message)
             if send_alert:
                 user_link = await utils.create_user_link(user.id, context)
-                msg = (f"⚠️ <b>Alert!</b> This user is globally banned.\n"
-                       f"<i>Enforcing ban in this chat.</i>\n\n"
+                msg = (f"⚠️ <b>Alert!</b> I found a user who is globally banned.\n"
+                       f"<i>I banned him here!</i>"
+                       f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
-                       f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n"
-                       f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
+                       f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>")
                 
                 # Send as a fresh message to avoid "Message not found" errors
                 await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
@@ -107,7 +107,7 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                        f"<i>I banned him here!</i>"
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
-                       f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n")
+                       f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>")
                 await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
             
             # Stop the process if banned
