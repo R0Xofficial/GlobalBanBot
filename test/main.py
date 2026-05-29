@@ -58,7 +58,7 @@ async def gban_enforcer_action(user, chat, update: Update, context: ContextTypes
             if send_alert:
                 user_link = await utils.create_user_link(user.id, context)
                 msg = (f"<b>Alert!</b> I found a user who is globally banned.\n"
-                       f"<i>I banned him here!</i>"
+                       f"<i>I banned him here!</i>\n"
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
                        f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>")
@@ -104,7 +104,7 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if is_joining:
                 user_link = await utils.create_user_link(user.id, context)
                 msg = (f"<b>Alert!</b> I found a user who is globally banned.\n"
-                       f"<i>I banned him here!</i>"
+                       f"<i>I banned him here!</i>\n"
                        f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}\n"
                        f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
                        f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>")
