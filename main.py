@@ -27,22 +27,21 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
+# --- HELPERS ---
+async def register_user(user, chat, context):
+    if user and user.id != context.bot.id:
+        await db.log_user(user.id, user.username, user.first_name)
+        if chat and chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+            await db.log_chat(chat.id)
+            await db.log_user_in_chat(user.id, chat.id)
+
 # --- LOGGERS ---
 async def passive_data_logger(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Quietly records user and chat data to support global ban efficiency."""
     user = update.effective_user
     chat = update.effective_chat
     
-    # We only log real users to keep the database clean
-    if user and not user.is_bot:
-        # 1. Update user identity in cache (id, username, first_name)
-        await db.log_user(user.id, user.username, user.first_name)
-        
-        if chat and chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-            # 2. Ensure the chat is registered in our records
-            await db.log_chat(chat.id)
-            # 3. Map user to this chat (needed for fast unbanning later)
-            await db.log_user_in_chat(user.id, chat.id)
+    await register_user(user, chat, context)
         
 # --- PROTECTION LOGIC ---
 
@@ -87,7 +86,7 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_after = result.new_chat_member.status
     user = result.new_chat_member.user
 
-    if user.is_bot or await db.is_sudo(user.id): 
+    if user.id == context.bot.id: 
         return
 
     is_joining = (status_after == ChatMemberStatus.MEMBER and status_before != ChatMemberStatus.MEMBER)
@@ -98,9 +97,7 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if is_joining or is_leaving or is_banned:
-        await db.log_user(user.id, user.username, user.first_name)
-        await db.log_chat(chat.id)
-        await db.log_user_in_chat(user.id, chat.id)
+        await register_user(user, chat, context)
 
     # 2. Check for Global Ban
     ban_info = await db.get_gban(user.id)
@@ -126,12 +123,12 @@ async def enforcer_message_checker(update: Update, context: ContextTypes.DEFAULT
     if update.message and (update.message.new_chat_members or update.message.left_chat_member):
         return
 
-    if not user.is_bot:
-        await db.log_user(user.id, user.username, user.first_name)
-        await db.log_chat(chat.id)
-        await db.log_user_in_chat(user.id, chat.id)
+    if user.id == context.bot.id:
+        return
 
-    if not await db.is_enforced(chat.id) or await db.is_sudo(user.id):
+    await register_user(user, chat, context)
+
+    if not await db.is_enforced(chat.id):
         return
 
     # Active user check: Ban + Delete Message + Alert
