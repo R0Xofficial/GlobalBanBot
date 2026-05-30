@@ -56,7 +56,7 @@ async def log_chat(chat_id):
     return rowcount > 0
 
 async def log_user_in_chat(user_id, chat_id):
-    """Federation: Maps a user to a specific chat where they were seen."""
+    """Maps a user to a specific chat where they were seen."""
     await db_query('INSERT OR IGNORE INTO user_chats (user_id, chat_id) VALUES (?, ?)', 
                    (int(user_id), int(chat_id)), commit=True)
 
