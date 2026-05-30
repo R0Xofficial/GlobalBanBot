@@ -325,15 +325,24 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_private = update.effective_chat.type == ChatType.PRIVATE
     if not db.is_sudo(admin.id): return
     target_id = None
+    reason = None
+
+    # 1. Sprawdzanie Reply
     if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_id = update.message.reply_to_message.from_user.id
+        reason = " ".join(context.args) if context.args else None
+    
     elif context.args:
-        target_id, _ = await utils.resolve_id(update, context, context.args[0])
+        target_id, err = await utils.resolve_id(update, context, context.args[0])
+        if not err:
+            reason = " ".join(context.args[1:]) if len(context.args) > 1 else None
 
     if db.is_sudo(target_id) or target_id == context.bot.id:
         await update.message.reply_text("Privileged users is never gbanned."); return
     if not target_id:
         await update.message.reply_text("Who is the target of the command? The stars in the sky?"); return
+    if not reason:
+        await update.message.reply_text("Give a reason!"); return
 
     await utils.send_safe_reply(update, context, "Let's give him another chance!")
     await asyncio.sleep(0.5)
@@ -353,6 +362,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log_msg = (f"<b>#UNGBANNED</b>\n"
                    f"<b>Initiated From:</b> {chat_display} [<code>{chat.id}</code>]\n\n"
                    f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
+                   f"<b>Reason:</b> <code>{utils.safe_escape(reason)}</code>\n"
                    f"<b>Date:</b> <code>{curr_time}</code>\n"
                    f"<b>Admin:</b> {admin_link} [<code>{admin.id}</code>]")
         # await utils.send_safe_reply(update, context, log_msg)
