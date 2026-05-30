@@ -2,6 +2,7 @@
 import html
 import database as db
 import telegram
+import aiosqlite
 from telegram import Update
 from telegram.constants import ChatType
 
@@ -30,7 +31,7 @@ async def resolve_id(update: Update, context, input_str: str):
         return uid, None
     
     if input_str.startswith("@"):
-        db_id = db.get_user_by_username(input_str)
+        db_id = await db.get_user_by_username(input_str)
         if db_id: return db_id, None
         try:
             res = await context.bot.get_chat(input_str)
