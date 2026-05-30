@@ -755,7 +755,7 @@ async def restart_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await utils.send_safe_reply(update, context, "Restarting...")
         if LOG_CHAT_ID:
-            await context.bot.send_message(LOG_CHAT_ID, "Rebooting system...")
+            await context.bot.send_message(LOG_CHAT_ID, "Restarting...")
     except Exception as e:
         logger.error(f"Failed to send restart message: {e}")
     os.execv(sys.executable, [sys.executable] + sys.argv)
