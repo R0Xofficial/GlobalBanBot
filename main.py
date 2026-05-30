@@ -644,7 +644,8 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     ERRORS_TO_IGNORE = [
-        "httpx.ConnectError: All connection attempts failed"
+        "httpx.ConnectError: All connection attempts failed",
+        "httpx.ReadError:"
     ]
 
     error_str = str(context.error)
