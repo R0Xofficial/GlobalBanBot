@@ -584,10 +584,9 @@ async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYP
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await db.is_sudo(update.effective_user.id): return
     
-    with sqlite3.connect(DB_NAME) as conn:
-        gbans = conn.execute("SELECT COUNT(*) FROM gbans").fetchone()[0]
-        users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        chats = conn.execute("SELECT COUNT(*) FROM bot_chats").fetchone()[0]
+    gbans = (await db.db_query("SELECT COUNT(*) FROM gbans", fetch="one"))[0]
+    users = (await db.db_query("SELECT COUNT(*) FROM users", fetch="one"))[0]
+    chats = (await db.db_query("SELECT COUNT(*) FROM bot_chats", fetch="one"))[0]
     
     msg = (f"<b>Bot Statistics:</b>\n\n"
            f"• <b>Global Bans:</b> <code>{gbans}</code>\n"
@@ -613,8 +612,7 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     status_msg = await update.message.reply_text("Starting chat database cleanup...")
     
-    with sqlite3.connect(DB_NAME) as conn:
-        chats = conn.execute("SELECT chat_id FROM bot_chats").fetchall()
+    chats = await db.db_query("SELECT chat_id FROM bot_chats", fetch="all")
 
     total = len(chats)
     removed = 0
@@ -638,6 +636,7 @@ async def cleanup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         checked += 1
         if checked % 5 == 0:
             await asyncio.sleep(0.5)
+            
     await status_msg.edit_text(
         f"<b>Cleanup chats complete!</b>\n\n"
         f"• Total scanned: <code>{total}</code>\n"
