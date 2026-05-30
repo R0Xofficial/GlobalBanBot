@@ -54,7 +54,7 @@ async def send_safe_reply(update: Update, context, text: str, **kwargs):
             )
         raise e
 
-async def get_utc_now() -> str:
+def get_utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 async def get_target_from_command(update: Update, context):
