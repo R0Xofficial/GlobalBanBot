@@ -108,13 +108,7 @@ async def enforcer_radar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.ban_chat_member(chat.id, user.id)
             if is_joining or is_leaving:
-                user_link = await utils.create_user_link(user.id, context)
-                msg = (f"<b>Alert!</b> Detected globally banned user.\n"
-                       f"<code>I banned him here!</code>\n"
-                       f"<b>User:</b> {user_link} [<code>{user.id}</code>]\n"
-                       f"<b>Reason:</b> <code>{utils.safe_escape(ban_info[0])}</code>\n"
-                       f"<b>Appeal Chat:</b> {APPEAL_CHAT_USERNAME}")
-                await context.bot.send_message(chat.id, msg, parse_mode=ParseMode.HTML)
+                await gban_enforcer_action(user, chat, update, context, send_alert=True)
             
             # Stop the process if banned
             raise ApplicationHandlerStop()
@@ -132,6 +126,11 @@ async def enforcer_message_checker(update: Update, context: ContextTypes.DEFAULT
     # Ignore system service messages to prevent duplicate alerts
     if update.message and (update.message.new_chat_members or update.message.left_chat_member):
         return
+
+    if not user.is_bot:
+        db.log_user(user.id, user.username, user.first_name)
+        db.log_chat(chat.id)
+        db.log_user_in_chat(user.id, chat.id)
 
     if not db.is_enforced(chat.id) or db.is_sudo(user.id):
         return
