@@ -299,7 +299,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await db.add_gban(target_id, admin.id, reason)
     user_link = await utils.create_user_link(target_id, context)
     admin_link = await utils.create_user_link(admin.id, context)
-    curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    curr_time = utils.get_utc_now()
     hashtag = "#GBANUPDATE" if old_ban else "#GBANNED"
     
     log_msg = (f"<b>{hashtag}</b>\n"
@@ -358,7 +358,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if await db.remove_gban(target_id):       
         admin_link = await utils.create_user_link(admin.id, context)
-        curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        curr_time = utils.get_utc_now()
         log_msg = (f"<b>#UNGBANNED</b>\n"
                    f"<b>Initiated From:</b> {chat_display} [<code>{chat.id}</code>]\n\n"
                    f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
@@ -497,7 +497,7 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await db.add_sudo(target_id)
     user_link = await utils.create_user_link(target_id, context)
-    curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    curr_time = utils.get_utc_now()
 
     log_msg = (f"<b>#SUDO</b>\n"
                 f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
@@ -531,7 +531,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if await db.remove_sudo(target_id):
         user_link = await utils.create_user_link(target_id, context)
-        curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        curr_time = utils.get_utc_now()
 
         log_msg = (f"<b>#UNSUDO</b>\n"
                    f"<b>User:</b> {user_link} [<code>{target_id}</code>]\n"
@@ -597,7 +597,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @bot_command("backup")
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
-    curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    curr_time = utils.get_utc_now()
     try:
         with open(DB_NAME, 'rb') as f:
             await context.bot.send_document(OWNER_ID, document=f, caption=f"Database Backup: {curr_time}")
@@ -827,7 +827,7 @@ async def auto_backup_job(context: ContextTypes.DEFAULT_TYPE):
     if OWNER_ID:
         try:
             db_filename = os.path.basename(DB_NAME)
-            curr_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            curr_time = utils.get_utc_now()
             
             with open(DB_NAME, 'rb') as db_file:
                 await context.bot.send_document(
