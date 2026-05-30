@@ -5,6 +5,7 @@ import telegram
 import aiosqlite
 from telegram import Update
 from telegram.constants import ChatType
+from datetime import datetime, timezone
 
 def safe_escape(text: str) -> str:
     return html.escape(str(text)).replace("&#x27;", "’")
@@ -52,3 +53,13 @@ async def send_safe_reply(update: Update, context, text: str, **kwargs):
                 **kwargs
             )
         raise e
+
+async def get_utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+async def get_target_from_command(update: Update, context):
+    if update.message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
+        return update.message.reply_to_message.from_user.id, None
+    elif context.args:
+        return await resolve_id(update, context, context.args[0])
+    return None, "Who is the target of the command? The stars in the sky?"
